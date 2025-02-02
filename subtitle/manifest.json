@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Subtitle Extension-final",
+  "version": "3.5",
+  "description": "Provides customed Korean subtitles for particular videos.",
+  "permissions": ["activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.udemy.com/course/*/learn/lecture/*",
+        "*://wjtb-starters.udemy.com/course/*/learn/lecture/*"
+      ],
+      "js": ["content.js"]
+      
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  }
+}
