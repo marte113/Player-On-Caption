@@ -20,6 +20,3 @@ document.getElementById("userTranslateBtn").addEventListener("click", () => {
     });
   });
 });
-
-//background.js에서 content.js 스크립트가 브라우저의 현재 탭에 설치되고 나서 popup.html에서의 사용자의 선택에 따라,
-//content.js에서 어떤 동작을 실
