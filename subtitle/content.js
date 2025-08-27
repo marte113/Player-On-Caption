@@ -301,49 +301,6 @@ function hideLoadingIndicator() {
   }
 }
 
-// 자막 업데이트
-// function updateSubtitles(translations) {
-//   console.log("updateSubtitles 실행");
-//   const subtitleElements = document.querySelectorAll("span.well--text--J1-Qi");
-
-//   subtitleElements.forEach((subtitleElement) => {
-//     const englishText = normalizeText(subtitleElement.innerText);
-//     const koreanText = translations.get(englishText);
-//     if (koreanText) {
-//       const container = subtitleElement.closest("div.well--container--afdWD");
-//       if (!container) {
-//         console.log("Container not found!");
-//         return;
-//       }
-
-//       // ShadowRoot 가져오기
-//       const shadowRoot = container.shadowRoot;
-//       if (!shadowRoot) {
-//         console.log("ShadowRoot not found!");
-//         return;
-//       }
-
-//       // Shadow DOM 내부에서 자막 요소 찾기
-//       let engSubElem = shadowRoot.querySelector(".english-subtitle");
-//       let korSubElem = shadowRoot.querySelector(".korean-subtitle");
-
-//       if (!engSubElem) {
-//         console.log("Cannot find 'english-subtitle' element in ShadowRoot");
-//         return;
-//       }
-
-//       if (!korSubElem) {
-//         console.log("Cannot find 'korean-subtitle' element in ShadowRoot");
-//         return;
-//       }
-
-//       // 자막 업데이트
-//       engSubElem.innerText = subtitleElement.innerText;
-//       korSubElem.innerText = koreanText;
-//     }
-//   });
-// }
-
 /**
  * Shadow DOM 내부에서 영어, 한글 자막 요소를 찾아 반환한다.
  * @param {ShadowRoot} shadowRoot 
@@ -499,7 +456,7 @@ async function process() {
   }
 
   const extractedScriptMap = extractScript();
-  const chunks = scriptSlice(extractedScriptMap);
+  const chunks = scriptSlice(extractedScriptMap, extractedScriptMap.size, extractedScriptMap.size);
   //const translations = new Map();
 
   for (const chunk of chunks) {
