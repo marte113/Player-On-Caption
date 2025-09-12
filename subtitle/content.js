@@ -142,31 +142,21 @@ function scriptSlice(
 
 async function fetchScript(text, api) {
   try {
-    const response = await fetch("http://localhost:5004/translate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text, api }),
+    const response = await chrome.runtime.sendMessage({
+      action: "translateChunk",
+      api,
+      text,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Proxy Server Error:", errorData);
-      throw new Error(
-        `Proxy server request failed with status ${response.status}`
-      );
+    if (!response || !response.ok) {
+      const errMsg = response && response.error ? response.error : "Background translation failed";
+      console.error("Background Error:", errMsg);
+      throw new Error(errMsg);
     }
 
-    const data = await response.json();
+    const data = response.data;
 
-    // DeepL API의 경우 data.translations[0].text를 반환
-    // if (api === "deepl") {
-    //   return data.translations[0].text;
-    // }
-    // // OpenAI API의 경우 data를 직접 반환
-    // return data;
-
+    // DeepL API의 경우 data.translations[0].text를 반환, OpenAI는 문자열 반환
     return api === "deepl" ? data.translations[0].text : data;
 
   } catch (error) {
