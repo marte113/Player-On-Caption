@@ -137,8 +137,11 @@ ${text}
 --- END OF SCRIPT ---`,
         },
       ],
-      max_output_tokens: 30000,
-      temperature: 1,
+      max_output_tokens: 15000,
+      store: true,
+      parallel_tool_calls: false,
+      reasoning: { effort: "low" },
+      text: { verbosity: "low" },
     }),
   });
 

@@ -500,7 +500,7 @@ async function process() {
   }
 
   const extractedScriptMap = extractScript();
-  const chunks = scriptSlice(extractedScriptMap, extractedScriptMap.size, extractedScriptMap.size);
+  const chunks = scriptSlice(extractedScriptMap);
   //const translations = new Map();
 
   for (const chunk of chunks) {
