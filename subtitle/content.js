@@ -417,6 +417,59 @@ function observeSubtitles(translations) {
   ensureObserver();
 }
 
+// 특정 셀렉터의 요소가 준비되길 기다린다(있으면 즉시, 없으면 짧게 대기)
+function waitForElement(selector, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const found = document.querySelector(selector);
+    if (found) return resolve(found);
+
+    const root = document.documentElement || document.body;
+    const observer = new MutationObserver(() => {
+      const el = document.querySelector(selector);
+      if (el) {
+        observer.disconnect();
+        clearTimeout(timer);
+        resolve(el);
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true });
+
+    const timer = setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, timeoutMs);
+  });
+}
+
+// 최초 1회 즉시 반영(Prime-Once): 대상 노드가 있으면 그 노드만, 없으면 1회 전역 스캔(옵션)
+async function primeFirstSubtitle(translations, options = { fallbackScan: true }) {
+  try {
+    const node = await waitForElement("span.well--text--J1-Qi", 1500);
+    if (node) {
+      processSubtitleElement(node, translations);
+      return true;
+    }
+    if (options.fallbackScan) {
+      updateSubtitles(translations); // 전역 스캔 1회
+      return true;
+    }
+  } catch (e) {
+    console.warn("primeFirstSubtitle 실패:", e);
+  }
+  return false;
+}
+
+// 재생 시점 1회 프라임: playing 이벤트에서 한 번만 prime 호출
+function setupPrimeOnPlayback(translations) {
+  const video = document.querySelector("video");
+  if (!video) return;
+  const onPlay = async () => {
+    await primeFirstSubtitle(translations, { fallbackScan: false });
+  };
+  // once 옵션으로 자동 제거
+  video.addEventListener("playing", onPlay, { once: true });
+}
+
 async function process() {
   console.log("process 최초 실행");
   let isInitialChunk = true;
@@ -437,10 +490,12 @@ async function process() {
     //const translations = new Map(Object.entries(existingTranslation));
     //console.log("기존 번역을 반환합니다:", translations);
     hideLoadingIndicator();
-    setupInitialPolling(existingTranslation, 4000);
     // 단일 옵저버 + 상태 갱신으로 대체
     STATE.translations = existingTranslation;
     ensureObserver();
+    // 최초 1회 즉시 반영(프라임) + 재생 시점 프라임 훅(once)
+    await primeFirstSubtitle(existingTranslation, { fallbackScan: true });
+    setupPrimeOnPlayback(existingTranslation);
     return;
   }
 
@@ -489,12 +544,13 @@ async function process() {
     ensureObserver();
     console.log("Observer ensured/updated for new translations.");
 
-    // 번역된 chunk가 translations Map에 추가되었으므로, callback 함수를 호출합니다.
+    // 번역된 chunk가 translations Map에 추가되었으므로, 최초 1회만 프라임을 수행합니다.
     console.log("process callback 실행 바로 직전");
     if (isInitialChunk) {
       isInitialChunk = false; // 최초 chunk 처리 완료 후 false로 변경
       hideLoadingIndicator(); // 최초 chunk 처리 완료 후 로딩 인디케이터 숨김
-      setupInitialPolling(extractedScriptMap, 4000);
+      await primeFirstSubtitle(extractedScriptMap, { fallbackScan: true });
+      setupPrimeOnPlayback(extractedScriptMap);
     }
   }
 
@@ -540,8 +596,11 @@ chrome.runtime.onMessage.addListener((request) => {
         try {
           shadowDomInit("text");
           const translations = await readTranslationFile(fileInput.files[0]);
-          setupInitialPolling(translations, 4000);
-          observeSubtitles(translations);
+          // 단일 옵저버 + 상태 갱신 및 1회 프라임
+          STATE.translations = translations;
+          ensureObserver();
+          await primeFirstSubtitle(translations, { fallbackScan: true });
+          setupPrimeOnPlayback(translations);
           //setupSubtitleUpdater(translations);
         } catch (error) {
           console.error("Failed to process the translation file:", error);
