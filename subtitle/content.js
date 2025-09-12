@@ -259,6 +259,12 @@ function shadowDomInit(mode) {
   koreanSubtitle.className = "korean-subtitle";
   shadowRoot.appendChild(koreanSubtitle);
 
+  // 캐시된 레퍼런스 저장
+  STATE.refs.container = container;
+  STATE.refs.shadowRoot = shadowRoot;
+  STATE.refs.eng = englishSubtitle;
+  STATE.refs.kor = koreanSubtitle;
+
   if (mode === "auto") {
     const loadingIndicator = document.createElement("div");
     loadingIndicator.id = "loading-indicator";
@@ -318,8 +324,12 @@ function getShadowSubtitleElements(shadowRoot) {
  * @param {string} koreanText 
  */
 function updateShadowSubtitles(engSubElem, korSubElem, englishText, koreanText) {
+  // 동일 텍스트면 DOM 업데이트 스킵하여 reflow 최소화
+  if (STATE.last.eng === englishText && STATE.last.kor === koreanText) return;
   engSubElem.innerText = englishText;
   korSubElem.innerText = koreanText;
+  STATE.last.eng = englishText;
+  STATE.last.kor = koreanText;
 }
 
 /**
@@ -332,26 +342,25 @@ function processSubtitleElement(subtitleElement, translations) {
   const koreanText = translations.get(englishText);
   if (!koreanText) return; // 번역이 없으면 아무 작업도 수행하지 않음
 
-  // 컨테이너 찾기
-  const container = subtitleElement.closest("div.well--container--afdWD");
-  if (!container) {
-    console.error("Container not found for subtitle:", englishText);
-    return;
+  // 캐시된 Shadow DOM 레퍼런스 사용, 없으면 보정
+  if (!STATE.refs.eng || !STATE.refs.kor) {
+    const container = document.querySelector("div.well--container--afdWD");
+    if (!container) return;
+    const shadowRoot = container.shadowRoot;
+    if (!shadowRoot) return;
+    const { engSubElem, korSubElem } = getShadowSubtitleElements(shadowRoot);
+    STATE.refs.container = container;
+    STATE.refs.shadowRoot = shadowRoot;
+    STATE.refs.eng = engSubElem;
+    STATE.refs.kor = korSubElem;
   }
 
-  // ShadowRoot 가져오기
-  const shadowRoot = container.shadowRoot;
-  if (!shadowRoot) {
-    console.error("ShadowRoot not found in container:", container);
-    return;
-  }
-
-  // Shadow DOM 내부에서 자막 요소 선택
-  const { engSubElem, korSubElem } = getShadowSubtitleElements(shadowRoot);
-  if (!engSubElem || !korSubElem) return;
-
-  // 자막 업데이트
-  updateShadowSubtitles(engSubElem, korSubElem, subtitleElement.innerText, koreanText);
+  updateShadowSubtitles(
+    STATE.refs.eng,
+    STATE.refs.kor,
+    subtitleElement.innerText,
+    koreanText
+  );
 }
 
 /**
@@ -367,62 +376,103 @@ function updateSubtitles(translations) {
   });
 }
 
+// 전역 상태: 번역 Map, 옵저버, Shadow DOM 레퍼런스, 마지막 표시 텍스트 캐시
+const STATE = {
+  translations: null,
+  observer: null,
+  refs: { container: null, shadowRoot: null, eng: null, kor: null },
+  last: { eng: "", kor: "" },
+};
 
-function autoObserveSubtitles(translations, currentObserver) {
-  // 기존 observer가 있으면 disconnect
-  if (currentObserver && currentObserver.disconnect) {
-    currentObserver.disconnect();
-  }
+// 단일 옵저버를 생성/재사용, MutationRecord 기반으로 변경된 노드만 업데이트
+function ensureObserver() {
+  if (STATE.observer) return;
 
-  const targetNode = document.querySelector("span.well--text--J1-Qi");
-  if (!targetNode) return null;
-
-  const observer = new MutationObserver(() => updateSubtitles(translations));
-  observer.observe(targetNode, {
-    characterData: true,
-    subtree: true,
-    childList: true,
-  });
-
-  console.log("New observer set up for updated translations.");
-  return observer;
-}
-
-// 자막 텍스트 변화 감지
-function observeSubtitles(translations) {
   const targetNode = document.querySelector("span.well--text--J1-Qi");
   if (!targetNode) return;
 
-  const observer = new MutationObserver(() => updateSubtitles(translations));
+  const observer = new MutationObserver((records) => {
+    for (const r of records) {
+      // 텍스트 노드 변화 등 다양한 케이스에서 실제 subtitle 요소를 찾음
+      const base = r.target.nodeType === Node.TEXT_NODE ? r.target.parentElement : r.target;
+      const subtitleElement = base && base.closest ? base.closest("span.well--text--J1-Qi") : null;
+      if (subtitleElement && STATE.translations) {
+        processSubtitleElement(subtitleElement, STATE.translations);
+      }
+    }
+  });
+
   observer.observe(targetNode, {
     characterData: true,
     subtree: true,
     childList: true,
   });
+
+  STATE.observer = observer;
 }
 
-function setupInitialPolling(translations, duration = 4000) {
-  const videoElement = document.querySelector("video");
-  if (!videoElement) return;
+// observeSubtitles: 기존 API 호환용 래퍼(STATE 갱신 + 단일 옵저버 보장)
+function observeSubtitles(translations) {
+  STATE.translations = translations;
+  ensureObserver();
+}
 
-  const intervalId = setInterval(() => {
-    if (!videoElement.paused) {
-      updateSubtitles(translations);
+// 특정 셀렉터의 요소가 준비되길 기다린다(있으면 즉시, 없으면 짧게 대기)
+function waitForElement(selector, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const found = document.querySelector(selector);
+    if (found) return resolve(found);
+
+    const root = document.documentElement || document.body;
+    const observer = new MutationObserver(() => {
+      const el = document.querySelector(selector);
+      if (el) {
+        observer.disconnect();
+        clearTimeout(timer);
+        resolve(el);
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true });
+
+    const timer = setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, timeoutMs);
+  });
+}
+
+// 최초 1회 즉시 반영(Prime-Once): 대상 노드가 있으면 그 노드만, 없으면 1회 전역 스캔(옵션)
+async function primeFirstSubtitle(translations, options = { fallbackScan: true }) {
+  try {
+    const node = await waitForElement("span.well--text--J1-Qi", 1500);
+    if (node) {
+      processSubtitleElement(node, translations);
+      return true;
     }
-  }, 500);
-
-  // duration(4초) 후에 인터벌 종료
-  setTimeout(() => {
-    clearInterval(intervalId);
-    console.log("Initial polling completed, switching to Observer mode");
-  }, duration);
+    if (options.fallbackScan) {
+      updateSubtitles(translations); // 전역 스캔 1회
+      return true;
+    }
+  } catch (e) {
+    console.warn("primeFirstSubtitle 실패:", e);
+  }
+  return false;
 }
-// 초기 observer 컨텍스트가 준비될 때 까지 폴링 사용.
+
+// 재생 시점 1회 프라임: playing 이벤트에서 한 번만 prime 호출
+function setupPrimeOnPlayback(translations) {
+  const video = document.querySelector("video");
+  if (!video) return;
+  const onPlay = async () => {
+    await primeFirstSubtitle(translations, { fallbackScan: false });
+  };
+  // once 옵션으로 자동 제거
+  video.addEventListener("playing", onPlay, { once: true });
+}
 
 async function process() {
   console.log("process 최초 실행");
   let isInitialChunk = true;
-  let currentObserver = null;
   if (isInitialChunk) {
     showLoadingIndicator(); // 최초 chunk인 경우, 로딩 인디케이터 표시
   }
@@ -440,8 +490,12 @@ async function process() {
     //const translations = new Map(Object.entries(existingTranslation));
     //console.log("기존 번역을 반환합니다:", translations);
     hideLoadingIndicator();
-    setupInitialPolling(existingTranslation, 4000);
-    autoObserveSubtitles(existingTranslation, null); // 기존 번역을 사용하여 자막 관찰 시작
+    // 단일 옵저버 + 상태 갱신으로 대체
+    STATE.translations = existingTranslation;
+    ensureObserver();
+    // 최초 1회 즉시 반영(프라임) + 재생 시점 프라임 훅(once)
+    await primeFirstSubtitle(existingTranslation, { fallbackScan: true });
+    setupPrimeOnPlayback(existingTranslation);
     return;
   }
 
@@ -473,8 +527,8 @@ async function process() {
         const english = translatedSentences[i];
         const korean = translatedSentences[i + 1] ?? "";
 
-        // Map에 저장
-        extractedScriptMap.set(english, korean);
+        // Map에 저장 (정규화 키로 일관성 유지)
+        extractedScriptMap.set(normalizeText(english), korean);
       }
 
       console.log(extractedScriptMap);
@@ -485,15 +539,18 @@ async function process() {
       console.error("Error: fetchScript returned null");
     }
 
-    currentObserver = autoObserveSubtitles(extractedScriptMap, currentObserver);
-    console.log("Observer updated for new translations.");
+    // 옵저버 재생성 대신 상태만 갱신하고 단일 옵저버 보장
+    STATE.translations = extractedScriptMap;
+    ensureObserver();
+    console.log("Observer ensured/updated for new translations.");
 
-    // 번역된 chunk가 translations Map에 추가되었으므로, callback 함수를 호출합니다.
+    // 번역된 chunk가 translations Map에 추가되었으므로, 최초 1회만 프라임을 수행합니다.
     console.log("process callback 실행 바로 직전");
     if (isInitialChunk) {
       isInitialChunk = false; // 최초 chunk 처리 완료 후 false로 변경
       hideLoadingIndicator(); // 최초 chunk 처리 완료 후 로딩 인디케이터 숨김
-      setupInitialPolling(extractedScriptMap, 4000);
+      await primeFirstSubtitle(extractedScriptMap, { fallbackScan: true });
+      setupPrimeOnPlayback(extractedScriptMap);
     }
   }
 
@@ -520,7 +577,7 @@ chrome.runtime.onMessage.addListener((request) => {
             // finalTranslations가 존재하고 비어있지 않을 때만 실행
             console.log("final translation:", finalTranslations);
             saveTranslation(title, finalTranslations);
-            // 이미 process 함수 내에서 autoObserveSubtitles를 호출함
+            // 옵저버는 ensureObserver로 1회 설정되어 있으며, STATE.translations 갱신으로 최신 상태를 반영합니다.
           } else {
             console.warn(
               "finalTranslations가 존재하지 않거나 이미 저장 되어있습니다.."
@@ -539,8 +596,11 @@ chrome.runtime.onMessage.addListener((request) => {
         try {
           shadowDomInit("text");
           const translations = await readTranslationFile(fileInput.files[0]);
-          setupInitialPolling(translations, 4000);
-          observeSubtitles(translations);
+          // 단일 옵저버 + 상태 갱신 및 1회 프라임
+          STATE.translations = translations;
+          ensureObserver();
+          await primeFirstSubtitle(translations, { fallbackScan: true });
+          setupPrimeOnPlayback(translations);
           //setupSubtitleUpdater(translations);
         } catch (error) {
           console.error("Failed to process the translation file:", error);
