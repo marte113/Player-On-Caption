@@ -1,11 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Subtitle Extension-final",
-  "version": "3.5",
+  "version": "3.7",
   "description": "Provides customed Korean subtitles for particular videos.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://api-free.deepl.com/*"
+  ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -25,5 +30,9 @@
       "48": "images/icon48.png",
       "128": "images/icon128.png"
     }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   }
 }
