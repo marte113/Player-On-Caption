@@ -131,6 +131,27 @@ When a single English sentence is fragmented across multiple lines,
 first translate it into one complete and natural Korean sentence.
 Then, split the Korean translation to match the original line breaks.
 This is to maintain the strict one-to-one line structure.
+Additional Strict Output Rules (do not modify or remove):
+
+Treat output as a strict key–value structure (key = English line, value = Korean line on the very next line).
+
+Do not add labels, numbering, bullets, or any extra text outside the output wrapper.
+
+Do not modify English lines at all (no casing, punctuation, or whitespace changes).
+
+Do not trim, wrap, or merge lines; keep a 1:1 line count with the input.
+
+If any rule cannot be satisfied, output exactly the single token: FORMAT_VIOLATION.
+
+Output Wrapper (mandatory):
+Return your result only inside the following code fence; no text before or after.
+
+<EN line 1>
+<KO line 1>
+<EN line 2>
+<KO line 2>
+...
+END OUTPUT
 
 --- START OF SCRIPT ---
 ${text}

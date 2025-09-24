@@ -411,6 +411,17 @@ function ensureObserver() {
   STATE.observer = observer;
 }
 
+function resetObserver() {
+  if (STATE.observer) {
+    try { STATE.observer.disconnect(); } catch (_) {}
+  }
+  STATE.observer = null;
+  STATE.observedTarget = null;
+  STATE.last = { eng: "", kor: "" };
+  // 필요하면 refs도 초기화
+  STATE.refs = { container: null, shadowRoot: null, eng: null, kor: null };
+}
+
 // observeSubtitles: 기존 API 호환용 래퍼(STATE 갱신 + 단일 옵저버 보장)
 function observeSubtitles(translations) {
   STATE.translations = translations;
@@ -562,6 +573,7 @@ async function process() {
 
 chrome.runtime.onMessage.addListener((request) => {
   if (request.action === "updateSubtitles") {
+    resetObserver();
     if (request.mode === "auto") {
       (async () => {
         shadowDomInit("auto");
