@@ -155,9 +155,9 @@ A key requirement is that even when English sentences are broken across multiple
     
 ## Output Format
 Respond ONLY with alternating lines:
-- English line  
-- Korean translation line  
-(Repeat for all lines in order, including empty lines where applicable.)
+- English line
+- Korean translation line   
+(Repeat for all lines in order, always English line first and then Korean translation line comes, including empty lines where applicable.)
 
 DO NOT add any comments, explanations, or extra formatting.
 
