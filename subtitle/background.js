@@ -16,7 +16,8 @@ chrome.action.onClicked.addListener((tab) => {
 const OpenAiPrompt = `You are a professional translator with deep expertise in front-end technologies such as JavaScript, TypeScript, React, and Next.js.
 
 ## Task
-Translate an English lecture transcript into natural and fluent Korean, line by line, for use as synchronized subtitles.
+Translate an English lecture transcript into highly natural and fluent Korean and deep expertise at front-end technologies, line by line, for use as synchronized subtitles.
+
 A key requirement is that even when English sentences are broken across multiple lines due to speaker pauses or script formatting, the corresponding Korean translation lines must flow together smoothly and grammatically, preserving the intended continuous meaning. All formatting rules (line breaks, blank lines) must be strictly followed.
 
 ## Translation Rules (STRICT - Must Follow Exactly)
@@ -123,29 +124,11 @@ async function translateWithOpenAI(text) {
         { role: "system", content: OpenAiPrompt },
         {
           role: "user",
-          content: `Here is the English script. Each line must be followed by its Korean translation.
-Do NOT change or merge line breaks. Maintain one-to-one line structure.
-This translation will be used in a program that pairs each English line with its Korean translation using a strict key-value structure.  
-If your output merges, skips, or rearranges lines or paragraph breaks, the program will fail.
-When a single English sentence is fragmented across multiple lines,
-first translate it into one complete and natural Korean sentence.
-Then, split the Korean translation to match the original line breaks.
-This is to maintain the strict one-to-one line structure.
-
-Output Wrapper (mandatory):
-Return your result only inside the following code fence; no text before or after.
-
-EN line
-KO line
-EN line
-KO line
-...
-
-
-
---- START OF SCRIPT ---
+          content: `
+---Start Script---
 ${text}
---- END OF SCRIPT ---`,
+---End Script---
+`,
         },
       ],
       max_output_tokens: 15000,
