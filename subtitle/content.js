@@ -38,6 +38,11 @@ const DB_NAME = "udemy-translator-db";
 const DB_VERSION = 1;
 const STORE_NAME = "translations";
 
+/**
+ * IndexedDB 요청을 Promise로 변환.
+ * @param {IDBRequest} request - IndexedDB 요청 객체
+ * @returns {Promise<any>} 요청 결과를 담은 Promise
+ */
 function promisifyRequest(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -45,6 +50,10 @@ function promisifyRequest(request) {
   });
 }
 
+/**
+ * IndexedDB 열기 및 연결 반환.
+ * @returns {Promise<IDBDatabase>} 데이터베이스 연결 객체
+ */
 function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -67,14 +76,25 @@ function openDB() {
   });
 }
 
+/**
+ * IndexedDB 스토어 접근 및 콜백 실행.
+ * @param {IDBTransactionMode} mode - 트랜잭션 모드 ('readonly' | 'readwrite')
+ * @param {Function} Callback - 스토어를 인자로 받는 콜백 함수
+ * @returns {Promise<any>} 콜백 실행 결과
+ */
 async function withStore(mode, Callback) {
   const db = await openDB();
   const transaction = db.transaction(STORE_NAME, mode);
   const store = transaction.objectStore(STORE_NAME);
-  // operationCallback은 store를 인자로 받아 Promise를 반환해야 합니다.
   return Callback(store);
 }
 
+/**
+ * 번역 데이터 IndexedDB 저장.
+ * @param {string} title - 강의 제목 (키)
+ * @param {Map<string, string>} translations - 번역 Map 객체
+ * @returns {Promise<void>}
+ */
 async function saveTranslation(title, translations) {
   await withStore("readwrite", (store) => {
     const request = store.put({ title, translations });
@@ -83,6 +103,11 @@ async function saveTranslation(title, translations) {
   console.log("Translation saved successfully:", title);
 }
 
+/**
+ * IndexedDB에서 번역 데이터 조회.
+ * @param {string} title - 강의 제목 (키)
+ * @returns {Promise<Map<string, string>|null>} 번역 Map 객체 또는 null
+ */
 async function getTranslation(title) {
   const result = await withStore("readonly", (store) => {
     const request = store.get(title);
@@ -91,7 +116,11 @@ async function getTranslation(title) {
   return result ? result.translations : null;
 }
 
-// 텍스트 정규화 함수
+/**
+ * 텍스트 정규화 (소문자 변환, 특수문자 제거).
+ * @param {string} text - 정규화할 텍스트
+ * @returns {string} 정규화된 텍스트
+ */
 function normalizeText(text) {
   return text
     .trim()
@@ -99,7 +128,9 @@ function normalizeText(text) {
     .replace(/[^a-zA-Z0-9가-힣\s]/g, "");
 }
 
-//대본을 추출하기 위해서는 대본이 띄워지는 사이드바를 작동시켜서 마운트 시켜야함.
+/**
+ * 대본 사이드바 열기 및 DOM 마운트.
+ */
 function openSidebarAndExtractTranscript() {
   const transcriptButton = document.querySelector(SELECTORS.TRANSCRIPT_TOGGLE);
   if (!transcriptButton || transcriptButton.getAttribute("aria-expanded") === "true") {
@@ -110,7 +141,10 @@ function openSidebarAndExtractTranscript() {
   transcriptButton.click();
 }
 
-//강의 제목 추출
+/**
+ * 현재 강의 제목 추출.
+ * @returns {string|null} 강의 제목 또는 null
+ */
 function extractTitle() {
   console.log("extractTitle 실행");
   let title = null;
@@ -126,7 +160,10 @@ function extractTitle() {
   return title;
 }
 
-//강의 대본 추출
+/**
+ * 강의 대본 추출 및 Map 반환.
+ * @returns {Map<string, string>} 정규화된 영어 텍스트를 키로 하는 Map (값은 빈 문자열)
+ */
 function extractScript() {
   console.log("extractTranscript 실행");
   const cueContainers = document.querySelectorAll(SELECTORS.TRANSCRIPT_CONTAINER);
@@ -143,7 +180,13 @@ function extractScript() {
   return scriptMap;
 }
 
-//대본을 여러 덩어리로 나눔
+/**
+ * 대본 청크 분할.
+ * @param {Map<string, string>} scriptMap - 대본 Map 객체
+ * @param {number} [initialChunkSize=20] - 첫 번째 청크 크기
+ * @param {number} [subsequentChunkSize=50] - 이후 청크 크기
+ * @returns {string[][]} 분할된 대본 청크 배열
+ */
 function scriptSlice(
   scriptMap,
   initialChunkSize = 20,
@@ -167,6 +210,12 @@ function scriptSlice(
   return chunks;
 }
 
+/**
+ * Service Worker 통한 번역 API 호출.
+ * @param {string} text - 번역할 텍스트
+ * @param {string} api - 사용할 API ('openai' | 'deepl')
+ * @returns {Promise<string|null>} 번역된 텍스트 또는 null
+ */
 async function fetchScript(text, api) {
   try {
     const response = await chrome.runtime.sendMessage({
@@ -192,6 +241,11 @@ async function fetchScript(text, api) {
   }
 }
 
+/**
+ * 텍스트 라인 배열을 영어-한국어 번역 Map으로 파싱.
+ * @param {string[]} lines - 텍스트 라인 배열 (영어, 한국어 교대)
+ * @returns {Map<string, string>} 번역 Map 객체
+ */
 function parseTranslations(lines) {
   const translations = new Map();
 
@@ -205,6 +259,11 @@ function parseTranslations(lines) {
   return translations;
 }
 
+/**
+ * 업로드된 번역 파일 읽기 및 Map 변환.
+ * @param {File} file - 업로드된 텍스트 파일
+ * @returns {Promise<Map<string, string>>} 번역 Map 객체
+ */
 async function readTranslationFile(file) {
   const text = await file.text();
   const lines = text
@@ -215,6 +274,10 @@ async function readTranslationFile(file) {
   return parseTranslations(lines);
 }
 
+/**
+ * Shadow DOM 초기화 및 자막 UI 생성.
+ * @param {string} mode - 모드 ('auto' | 'text')
+ */
 function shadowDomInit(mode) {
   console.log("shadowDomInit 실행");
   const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
@@ -300,7 +363,9 @@ function shadowDomInit(mode) {
   }
 }
 
-// 로딩 인디케이터 표시 함수
+/**
+ * 로딩 인디케이터 표시.
+ */
 function showLoadingIndicator() {
   console.log("showLoadingIndicator 실행");
   const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
@@ -311,7 +376,9 @@ function showLoadingIndicator() {
   }
 }
 
-// 로딩 인디케이터 숨김 함수
+/**
+ * 로딩 인디케이터 숨김.
+ */
 function hideLoadingIndicator() {
   console.log("hideLoadingIndicator 실행");
   const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
@@ -323,7 +390,7 @@ function hideLoadingIndicator() {
 }
 
 /**
- * Shadow DOM 내부에서 영어, 한글 자막 요소를 찾아 반환한다.
+ * Shadow DOM 내부에서 영어, 한글 자막 요소 찾기 및 반환.
  * @param {ShadowRoot} shadowRoot 
  * @returns {{ engSubElem: Element|null, korSubElem: Element|null }}
  */
@@ -342,7 +409,7 @@ function getShadowSubtitleElements(shadowRoot) {
 }
 
 /**
- * 주어진 요소들에 대해 영어/한글 자막을 업데이트 한다.
+ * 주어진 요소들에 대해 영어/한글 자막 업데이트.
  * @param {Element} engSubElem 
  * @param {Element} korSubElem 
  * @param {string} englishText 
@@ -358,7 +425,7 @@ function updateShadowSubtitles(engSubElem, korSubElem, englishText, koreanText) 
 }
 
 /**
- * 하나의 subtitleElement에 대해 컨테이너, Shadow DOM 요소를 찾아 자막을 업데이트 한다.
+ * 하나의 subtitleElement에 대해 컨테이너, Shadow DOM 요소 찾기 및 자막 업데이트.
  * @param {Element} subtitleElement 
  */
 function processSubtitleElement(subtitleElement) {
@@ -388,7 +455,7 @@ function processSubtitleElement(subtitleElement) {
 }
 
 /**
- * 페이지의 모든 자막 요소를 찾아 번역된 자막으로 업데이트 한다.
+ * 페이지의 모든 자막 요소 찾기 및 번역된 자막으로 업데이트.
  */
 function updateSubtitles() {
   const subtitleElement = document.querySelector(SELECTORS.SUBTITLE_TEXT);
@@ -396,7 +463,10 @@ function updateSubtitles() {
   processSubtitleElement(subtitleElement);
 }
 
-// 단일 옵저버를 생성/재사용, MutationRecord 기반으로 변경된 노드만 업데이트
+/**
+ * 단일 MutationObserver 생성 또는 재사용.
+ * 자막 텍스트 변경 시 자동으로 번역된 자막 업데이트.
+ */
 function ensureObserver() {
   if (STATE.observer) return;
 
@@ -428,6 +498,9 @@ function ensureObserver() {
   STATE.observer = observer;
 }
 
+/**
+ * 전역 상태 초기화 및 옵저버 정리.
+ */
 function resetState() {
   if (STATE.observer) {
     try { STATE.observer.disconnect(); } catch (_) {}
@@ -438,7 +511,10 @@ function resetState() {
   STATE.refs = { eng: null, kor: null };
 }
 
-// 최초 자막 표시: 옵저버 설정 직후 4초간 폴링하여 자막 즉시 반영
+/**
+ * 옵저버 설정 직후 초기 자막 표시를 위한 폴링 시작.
+ * @param {number} [duration=4000] - 폴링 지속 시간 (ms)
+ */
 function startInitialPolling(duration = 4000) {
   if (!STATE.translations) return;
   
@@ -461,6 +537,10 @@ function startInitialPolling(duration = 4000) {
   }, duration);
 }
 
+/**
+ * 대본 추출 및 번역 프로세스 실행.
+ * @returns {Promise<Map<string, string>|undefined>} 번역 Map 객체 또는 undefined
+ */
 async function process() {
   console.log("process 최초 실행");
   let isInitialChunk = true;
@@ -545,7 +625,9 @@ async function process() {
   return extractedScriptMap;
 }
 
-// Auto 모드: API 기반 자동 번역
+/**
+ * Auto 모드: API 기반 자동 번역 실행.
+ */
 async function handleAutoMode() {
   shadowDomInit("auto");
   openSidebarAndExtractTranscript();
@@ -571,7 +653,9 @@ async function handleAutoMode() {
   }
 }
 
-// User 모드: 텍스트 파일 업로드
+/**
+ * User 모드: 사용자가 업로드한 번역 파일 처리.
+ */
 async function handleUserMode() {
   const fileInput = document.createElement("input");
   fileInput.type = "file";
