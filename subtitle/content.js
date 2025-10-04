@@ -1,4 +1,39 @@
-//DB Part
+//============================================
+// 상수 정의
+//============================================
+
+// Udemy DOM 셀렉터 (UI 변경 시 이 부분만 수정)
+const SELECTORS = {
+  // 대본 관련
+  TRANSCRIPT_TOGGLE: '[data-purpose="transcript-toggle"]',
+  TRANSCRIPT_CONTAINER: 'div.transcript--cue-container--Vuwj6',
+  TRANSCRIPT_TEXT: 'span[data-purpose="cue-text"]',
+  
+  // 강의 정보
+  LECTURE_TITLE: 'section.lecture-view--container--mrZSm',
+  
+  // 자막 관련
+  SUBTITLE_CONTAINER: 'div.well--container--afdWD',
+  SUBTITLE_TEXT: 'span.well--text--J1-Qi',
+  ENGLISH_SUBTITLE: '.english-subtitle',
+  KOREAN_SUBTITLE: '.korean-subtitle',
+  
+  // 비디오
+  VIDEO: 'video',
+};
+
+// 전역 상태: 번역 Map, 옵저버, Shadow DOM 레퍼런스, 마지막 표시 텍스트 캐시
+const STATE = {
+  translations: null,
+  observer: null,
+  refs: { eng: null, kor: null },
+  last: { eng: "", kor: "" },
+};
+
+//============================================
+// IndexedDB 레이어
+//============================================
+
 const DB_NAME = "udemy-translator-db";
 const DB_VERSION = 1;
 const STORE_NAME = "translations";
@@ -66,9 +101,7 @@ function normalizeText(text) {
 
 //대본을 추출하기 위해서는 대본이 띄워지는 사이드바를 작동시켜서 마운트 시켜야함.
 function openSidebarAndExtractTranscript() {
-  const transcriptButton = document.querySelector(
-    '[data-purpose="transcript-toggle"]'
-  );
+  const transcriptButton = document.querySelector(SELECTORS.TRANSCRIPT_TOGGLE);
   if (!transcriptButton || transcriptButton.getAttribute("aria-expanded") === "true") {
     console.error("Transcript button not found.");
     return;
@@ -81,9 +114,7 @@ function openSidebarAndExtractTranscript() {
 function extractTitle() {
   console.log("extractTitle 실행");
   let title = null;
-  const titleElem = document.querySelector(
-    "section.lecture-view--container--mrZSm"
-  );
+  const titleElem = document.querySelector(SELECTORS.LECTURE_TITLE);
   
   if (titleElem) {
     title = titleElem.getAttribute("aria-label");
@@ -98,15 +129,11 @@ function extractTitle() {
 //강의 대본 추출
 function extractScript() {
   console.log("extractTranscript 실행");
-  const cueContainers = document.querySelectorAll(
-    "div.transcript--cue-container--Vuwj6"
-  );
+  const cueContainers = document.querySelectorAll(SELECTORS.TRANSCRIPT_CONTAINER);
   const scriptMap = new Map();
 
   cueContainers.forEach((container) => {
-    const cueTextElement = container.querySelector(
-      "span[data-purpose='cue-text']"
-    );
+    const cueTextElement = container.querySelector(SELECTORS.TRANSCRIPT_TEXT);
     if (cueTextElement) {
       const normalizedText = normalizeText(cueTextElement.innerText);
       scriptMap.set(normalizedText, "");
@@ -190,7 +217,7 @@ async function readTranslationFile(file) {
 
 function shadowDomInit(mode) {
   console.log("shadowDomInit 실행");
-  const container = document.querySelector("div.well--container--afdWD");
+  const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
 
   // Shadow DOM 생성
   const shadowRoot = container.attachShadow({ mode: "open" });
@@ -276,7 +303,7 @@ function shadowDomInit(mode) {
 // 로딩 인디케이터 표시 함수
 function showLoadingIndicator() {
   console.log("showLoadingIndicator 실행");
-  const container = document.querySelector("div.well--container--afdWD");
+  const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
   const shadowRoot = container.shadowRoot;
   const indicator = shadowRoot.getElementById("loading-indicator");
   if (indicator) {
@@ -287,7 +314,7 @@ function showLoadingIndicator() {
 // 로딩 인디케이터 숨김 함수
 function hideLoadingIndicator() {
   console.log("hideLoadingIndicator 실행");
-  const container = document.querySelector("div.well--container--afdWD");
+  const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
   const shadowRoot = container.shadowRoot;
   const indicator = shadowRoot.getElementById("loading-indicator");
   if (indicator) {
@@ -301,12 +328,12 @@ function hideLoadingIndicator() {
  * @returns {{ engSubElem: Element|null, korSubElem: Element|null }}
  */
 function getShadowSubtitleElements(shadowRoot) {
-  const engSubElem = shadowRoot.querySelector(".english-subtitle");
+  const engSubElem = shadowRoot.querySelector(SELECTORS.ENGLISH_SUBTITLE);
   if (!engSubElem) {
     console.error("Cannot find 'english-subtitle' element in ShadowRoot");
   }
 
-  const korSubElem = shadowRoot.querySelector(".korean-subtitle");
+  const korSubElem = shadowRoot.querySelector(SELECTORS.KOREAN_SUBTITLE);
   if (!korSubElem) {
     console.error("Cannot find 'korean-subtitle' element in ShadowRoot");
   }
@@ -333,16 +360,17 @@ function updateShadowSubtitles(engSubElem, korSubElem, englishText, koreanText) 
 /**
  * 하나의 subtitleElement에 대해 컨테이너, Shadow DOM 요소를 찾아 자막을 업데이트 한다.
  * @param {Element} subtitleElement 
- * @param {Map<string, string>} translations 
  */
-function processSubtitleElement(subtitleElement, translations) {
+function processSubtitleElement(subtitleElement) {
+  if (!STATE.translations) return;
+  
   const englishText = normalizeText(subtitleElement.innerText);
-  const koreanText = translations.get(englishText);
+  const koreanText = STATE.translations.get(englishText);
   if (!koreanText) return; // 번역이 없으면 아무 작업도 수행하지 않음
 
   // 캐시된 Shadow DOM 레퍼런스 사용, 없으면 보정
   if (!STATE.refs.eng || !STATE.refs.kor) {
-    const container = document.querySelector("div.well--container--afdWD");
+    const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
     if (!container) return;
     const shadowRoot = container.shadowRoot;
     if (!shadowRoot) return;
@@ -361,27 +389,18 @@ function processSubtitleElement(subtitleElement, translations) {
 
 /**
  * 페이지의 모든 자막 요소를 찾아 번역된 자막으로 업데이트 한다.
- * @param {Map<string, string>} translations 
  */
-function updateSubtitles(translations) {
-  const subtitleElement = document.querySelector("span.well--text--J1-Qi");
+function updateSubtitles() {
+  const subtitleElement = document.querySelector(SELECTORS.SUBTITLE_TEXT);
   if (!subtitleElement) return;
-  processSubtitleElement(subtitleElement, translations);
+  processSubtitleElement(subtitleElement);
 }
-
-// 전역 상태: 번역 Map, 옵저버, Shadow DOM 레퍼런스, 마지막 표시 텍스트 캐시
-const STATE = {
-  translations: null,
-  observer: null,
-  refs: { eng: null, kor: null },
-  last: { eng: "", kor: "" },
-};
 
 // 단일 옵저버를 생성/재사용, MutationRecord 기반으로 변경된 노드만 업데이트
 function ensureObserver() {
   if (STATE.observer) return;
 
-  const targetNode = document.querySelector("span.well--text--J1-Qi");
+  const targetNode = document.querySelector(SELECTORS.SUBTITLE_TEXT);
   if (!targetNode) return;
 
   const observer = new MutationObserver((records) => {
@@ -392,10 +411,10 @@ function ensureObserver() {
         ? r.target.parentElement  // 텍스트 노드면 부모 요소로
         : r.target;                // Element 노드면 그대로 사용
       
-      const subtitleElement = base?.closest("span.well--text--J1-Qi");
+      const subtitleElement = base?.closest(SELECTORS.SUBTITLE_TEXT);
       
       if (subtitleElement && STATE.translations) {
-        processSubtitleElement(subtitleElement, STATE.translations);
+        processSubtitleElement(subtitleElement);
       }
     }
   });
@@ -409,13 +428,13 @@ function ensureObserver() {
   STATE.observer = observer;
 }
 
-function resetObserver() {
+function resetState() {
   if (STATE.observer) {
     try { STATE.observer.disconnect(); } catch (_) {}
   }
   STATE.observer = null;
+  STATE.translations = null;
   STATE.last = { eng: "", kor: "" };
-  // 필요하면 refs도 초기화
   STATE.refs = { eng: null, kor: null };
 }
 
@@ -444,15 +463,17 @@ function waitForElement(selector, timeoutMs = 1500) {
 }
 
 // 최초 1회 즉시 반영(Prime-Once): 대상 노드가 있으면 그 노드만, 없으면 1회 전역 스캔(옵션)
-async function primeFirstSubtitle(translations, options = { fallbackScan: true }) {
+async function primeFirstSubtitle(options = { fallbackScan: true }) {
+  if (!STATE.translations) return false;
+  
   try {
-    const node = await waitForElement("span.well--text--J1-Qi", 1500);
+    const node = await waitForElement(SELECTORS.SUBTITLE_TEXT, 1500);
     if (node) {
-      processSubtitleElement(node, translations);
+      processSubtitleElement(node);
       return true;
     }
     if (options.fallbackScan) {
-      updateSubtitles(translations); // 전역 스캔 1회
+      updateSubtitles(); // 전역 스캔 1회
       return true;
     }
   } catch (e) {
@@ -462,11 +483,11 @@ async function primeFirstSubtitle(translations, options = { fallbackScan: true }
 }
 
 // 재생 시점 1회 프라임: playing 이벤트에서 한 번만 prime 호출
-function setupPrimeOnPlayback(translations) {
-  const video = document.querySelector("video");
+function setupPrimeOnPlayback() {
+  const video = document.querySelector(SELECTORS.VIDEO);
   if (!video) return;
   const onPlay = async () => {
-    await primeFirstSubtitle(translations, { fallbackScan: false });
+    await primeFirstSubtitle({ fallbackScan: false });
   };
   // once 옵션으로 자동 제거
   video.addEventListener("playing", onPlay, { once: true });
@@ -489,15 +510,13 @@ async function process() {
   if (existingTranslation) {
     // 번역 객체가 존재하면 이를 Map으로 변환하여 반환
     console.log("기존의 번역이 map객체화 되기 전의 형태", existingTranslation);
-    //const translations = new Map(Object.entries(existingTranslation));
-    //console.log("기존 번역을 반환합니다:", translations);
     hideLoadingIndicator();
     // 단일 옵저버 + 상태 갱신으로 대체
     STATE.translations = existingTranslation;
     ensureObserver();
     // 최초 1회 즉시 반영(프라임) + 재생 시점 프라임 훅(once)
-    await primeFirstSubtitle(existingTranslation, { fallbackScan: true });
-    setupPrimeOnPlayback(existingTranslation);
+    await primeFirstSubtitle({ fallbackScan: true });
+    setupPrimeOnPlayback();
     return;
   }
 
@@ -551,8 +570,8 @@ async function process() {
     if (isInitialChunk) {
       isInitialChunk = false; // 최초 chunk 처리 완료 후 false로 변경
       hideLoadingIndicator(); // 최초 chunk 처리 완료 후 로딩 인디케이터 숨김
-      await primeFirstSubtitle(extractedScriptMap, { fallbackScan: true });
-      setupPrimeOnPlayback(extractedScriptMap);
+      await primeFirstSubtitle({ fallbackScan: true });
+      setupPrimeOnPlayback();
     }
   }
 
@@ -560,55 +579,65 @@ async function process() {
   return extractedScriptMap;
 }
 
-// 번역 파일 처리 및 자막 업데이트 시작
+// Auto 모드: API 기반 자동 번역
+async function handleAutoMode() {
+  shadowDomInit("auto");
+  openSidebarAndExtractTranscript();
 
-chrome.runtime.onMessage.addListener((request) => {
-  if (request.action === "updateSubtitles") {
-    resetObserver();
-    if (request.mode === "auto") {
-      (async () => {
-        shadowDomInit("auto");
-        openSidebarAndExtractTranscript();
-
-        try {
-          const finalTranslations = await process();
-          if (finalTranslations && finalTranslations.size > 0) {
-            const title = extractTitle();
-            if (!title) {
-              console.error("Failed to extract title.");
-            }
-            // finalTranslations가 존재하고 비어있지 않을 때만 실행
-            console.log("final translation:", finalTranslations);
-            saveTranslation(title, finalTranslations);
-            // 옵저버는 ensureObserver로 1회 설정되어 있으며, STATE.translations 갱신으로 최신 상태를 반영합니다.
-          } else {
-            console.warn(
-              "finalTranslations가 존재하지 않거나 이미 저장 되어있습니다.."
-            );
-          }
-        } catch (error) {
-          console.error("process 함수 실행 중 에러 발생:", error);
-        }
-      })();
-    } else if (request.mode === "user") {
-      // 기존 로직 실행
-      const fileInput = document.createElement("input");
-      fileInput.type = "file";
-      fileInput.accept = ".txt";
-      fileInput.onchange = async () => {
-        try {
-          shadowDomInit("text");
-          const translations = await readTranslationFile(fileInput.files[0]);
-          // 단일 옵저버 + 상태 갱신 및 1회 프라임
-          STATE.translations = translations;
-          ensureObserver();
-          await primeFirstSubtitle(translations, { fallbackScan: true });
-          setupPrimeOnPlayback(translations);
-        } catch (error) {
-          console.error("Failed to process the translation file:", error);
-        }
-      };
-      fileInput.click();
+  try {
+    const finalTranslations = await process();
+    
+    if (!finalTranslations?.size) {
+      console.warn("finalTranslations가 존재하지 않거나 이미 저장되어 있습니다.");
+      return;
     }
+
+    const title = extractTitle();
+    if (!title) {
+      console.error("Failed to extract title.");
+      return;
+    }
+
+    console.log("final translation:", finalTranslations);
+    saveTranslation(title, finalTranslations);
+  } catch (error) {
+    console.error("process 함수 실행 중 에러 발생:", error);
   }
+}
+
+// User 모드: 텍스트 파일 업로드
+async function handleUserMode() {
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".txt";
+  
+  fileInput.onchange = async () => {
+    try {
+      shadowDomInit("text");
+      const translations = await readTranslationFile(fileInput.files[0]);
+      STATE.translations = translations;
+      ensureObserver();
+      await primeFirstSubtitle({ fallbackScan: true });
+      setupPrimeOnPlayback();
+    } catch (error) {
+      console.error("Failed to process the translation file:", error);
+    }
+  };
+  
+  fileInput.click();
+}
+
+// 모드별 핸들러 맵
+const modeHandlers = {
+  auto: handleAutoMode,
+  user: handleUserMode,
+};
+
+// 메시지 리스너: 확장 프로그램 실행 진입점
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.action !== "updateSubtitles") return;
+  
+  resetState();
+  const handler = modeHandlers[request.mode];
+  handler?.();
 });
