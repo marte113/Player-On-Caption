@@ -438,59 +438,27 @@ function resetState() {
   STATE.refs = { eng: null, kor: null };
 }
 
-// 특정 셀렉터의 요소가 준비되길 기다린다(있으면 즉시, 없으면 짧게 대기)
-function waitForElement(selector, timeoutMs = 1500) {
-  return new Promise((resolve) => {
-    const found = document.querySelector(selector);
-    if (found) return resolve(found);
-
-    const root = document.documentElement || document.body;
-    const observer = new MutationObserver(() => {
-      const el = document.querySelector(selector);
-      if (el) {
-        observer.disconnect();
-        clearTimeout(timer);
-        resolve(el);
-      }
-    });
-    observer.observe(root, { childList: true, subtree: true });
-
-    const timer = setTimeout(() => {
-      observer.disconnect();
-      resolve(null);
-    }, timeoutMs);
-  });
-}
-
-// 최초 1회 즉시 반영(Prime-Once): 대상 노드가 있으면 그 노드만, 없으면 1회 전역 스캔(옵션)
-async function primeFirstSubtitle(options = { fallbackScan: true }) {
-  if (!STATE.translations) return false;
+// 최초 자막 표시: 옵저버 설정 직후 4초간 폴링하여 자막 즉시 반영
+function startInitialPolling(duration = 4000) {
+  if (!STATE.translations) return;
   
-  try {
-    const node = await waitForElement(SELECTORS.SUBTITLE_TEXT, 1500);
-    if (node) {
-      processSubtitleElement(node);
-      return true;
-    }
-    if (options.fallbackScan) {
-      updateSubtitles(); // 전역 스캔 1회
-      return true;
-    }
-  } catch (e) {
-    console.warn("primeFirstSubtitle 실패:", e);
-  }
-  return false;
-}
-
-// 재생 시점 1회 프라임: playing 이벤트에서 한 번만 prime 호출
-function setupPrimeOnPlayback() {
   const video = document.querySelector(SELECTORS.VIDEO);
-  if (!video) return;
-  const onPlay = async () => {
-    await primeFirstSubtitle({ fallbackScan: false });
-  };
-  // once 옵션으로 자동 제거
-  video.addEventListener("playing", onPlay, { once: true });
+  if (!video) {
+    // 비디오 없으면 1회만 시도
+    updateSubtitles();
+    return;
+  }
+
+  const intervalId = setInterval(() => {
+    if (!video.paused) {
+      updateSubtitles();
+    }
+  }, 500);
+
+  setTimeout(() => {
+    clearInterval(intervalId);
+    console.log("Initial subtitle priming completed");
+  }, duration);
 }
 
 async function process() {
@@ -514,9 +482,8 @@ async function process() {
     // 단일 옵저버 + 상태 갱신으로 대체
     STATE.translations = existingTranslation;
     ensureObserver();
-    // 최초 1회 즉시 반영(프라임) + 재생 시점 프라임 훅(once)
-    await primeFirstSubtitle({ fallbackScan: true });
-    setupPrimeOnPlayback();
+    // 옵저버 설정 직후 4초간 폴링으로 자막 즉시 반영
+    startInitialPolling();
     return;
   }
 
@@ -570,8 +537,7 @@ async function process() {
     if (isInitialChunk) {
       isInitialChunk = false; // 최초 chunk 처리 완료 후 false로 변경
       hideLoadingIndicator(); // 최초 chunk 처리 완료 후 로딩 인디케이터 숨김
-      await primeFirstSubtitle({ fallbackScan: true });
-      setupPrimeOnPlayback();
+      startInitialPolling();
     }
   }
 
@@ -617,8 +583,7 @@ async function handleUserMode() {
       const translations = await readTranslationFile(fileInput.files[0]);
       STATE.translations = translations;
       ensureObserver();
-      await primeFirstSubtitle({ fallbackScan: true });
-      setupPrimeOnPlayback();
+      startInitialPolling();
     } catch (error) {
       console.error("Failed to process the translation file:", error);
     }
