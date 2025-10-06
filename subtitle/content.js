@@ -28,6 +28,7 @@ const STATE = {
   observer: null,
   refs: { eng: null, kor: null },
   last: { eng: "", kor: "" },
+  subtitleElement: null, // 자막 요소 캐싱
 };
 
 //============================================
@@ -473,19 +474,13 @@ function ensureObserver() {
   const targetNode = document.querySelector(SELECTORS.SUBTITLE_TEXT);
   if (!targetNode) return;
 
-  const observer = new MutationObserver((records) => {
-    for (const r of records) {
-      // MutationObserver의 records를 활용하여 변경된 노드에서만 탐색
-      // (전체 DOM 탐색 대비 ~75% 빠름)
-      const base = r.target.nodeType === Node.TEXT_NODE 
-        ? r.target.parentElement  // 텍스트 노드면 부모 요소로
-        : r.target;                // Element 노드면 그대로 사용
-      
-      const subtitleElement = base?.closest(SELECTORS.SUBTITLE_TEXT);
-      
-      if (subtitleElement && STATE.translations) {
-        processSubtitleElement(subtitleElement);
-      }
+  // 자막 요소 캐싱 (innerText는 live property이므로 항상 최신 값 반환)
+  STATE.subtitleElement = targetNode;
+
+  const observer = new MutationObserver(() => {
+    // 콜백 실행 = 변경 발생, 캐싱된 요소 직접 사용
+    if (STATE.translations && STATE.subtitleElement) {
+      processSubtitleElement(STATE.subtitleElement);
     }
   });
 
@@ -509,6 +504,7 @@ function resetState() {
   STATE.translations = null;
   STATE.last = { eng: "", kor: "" };
   STATE.refs = { eng: null, kor: null };
+  STATE.subtitleElement = null;
 }
 
 /**
