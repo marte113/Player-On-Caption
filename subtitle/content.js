@@ -131,11 +131,15 @@ function normalizeText(text) {
 
 /**
  * 대본 사이드바 열기 및 DOM 마운트.
+ * @throws {Error} 대본 버튼을 찾을 수 없거나 이미 열려있는 경우
  */
 function openSidebarAndExtractTranscript() {
   const transcriptButton = document.querySelector(SELECTORS.TRANSCRIPT_TOGGLE);
-  if (!transcriptButton || transcriptButton.getAttribute("aria-expanded") === "true") {
-    console.error("Transcript button not found.");
+  if (!transcriptButton) {
+    throw new Error("Transcript button not found in DOM");
+  }
+  if (transcriptButton.getAttribute("aria-expanded") === "true") {
+    console.warn("Transcript sidebar is already open");
     return;
   }
 
@@ -145,19 +149,22 @@ function openSidebarAndExtractTranscript() {
 /**
  * 현재 강의 제목 추출.
  * @returns {string|null} 강의 제목 또는 null
+ * @throws {Error} 제목 요소를 찾을 수 없는 경우
  */
 function extractTitle() {
   console.log("extractTitle 실행");
-  let title = null;
   const titleElem = document.querySelector(SELECTORS.LECTURE_TITLE);
   
-  if (titleElem) {
-    title = titleElem.getAttribute("aria-label");
-  } else {
-    console.error("해당 class를 가진 section 요소가 존재하지 않습니다.");
+  if (!titleElem) {
+    throw new Error("Lecture title element not found in DOM");
   }
+  
+  const title = titleElem.getAttribute("aria-label");
+  if (!title) {
+    throw new Error("Lecture title attribute 'aria-label' is empty");
+  }
+  
   console.log("title :", title);
-
   return title;
 }
 
@@ -215,31 +222,25 @@ function scriptSlice(
  * Service Worker 통한 번역 API 호출.
  * @param {string} text - 번역할 텍스트
  * @param {string} api - 사용할 API ('openai' | 'deepl')
- * @returns {Promise<string|null>} 번역된 텍스트 또는 null
+ * @returns {Promise<string>} 번역된 텍스트
+ * @throws {Error} 번역 API 호출 실패 시
  */
 async function fetchScript(text, api) {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: "translateChunk",
-      api,
-      text,
-    });
+  const response = await chrome.runtime.sendMessage({
+    action: "translateChunk",
+    api,
+    text,
+  });
 
-    if (!response || !response.ok) {
-      const errMsg = response && response.error ? response.error : "Background translation failed";
-      console.error("Background Error:", errMsg);
-      throw new Error(errMsg);
-    }
-
-    const data = response.data;
-
-    // DeepL API의 경우 data.translations[0].text를 반환, OpenAI는 문자열 반환
-    return api === "deepl" ? data.translations[0].text : data;
-
-  } catch (error) {
-    console.error("Translation error:", error);
-    return null;
+  if (!response || !response.ok) {
+    const errMsg = response && response.error ? response.error : "Background translation failed";
+    throw new Error(`Translation API error: ${errMsg}`);
   }
+
+  const data = response.data;
+
+  // DeepL API의 경우 data.translations[0].text를 반환, OpenAI는 문자열 반환
+  return api === "deepl" ? data.translations[0].text : data;
 }
 
 /**
@@ -498,7 +499,11 @@ function ensureObserver() {
  */
 function resetState() {
   if (STATE.observer) {
-    try { STATE.observer.disconnect(); } catch (_) {}
+    try { 
+      STATE.observer.disconnect(); 
+    } catch (error) {
+      console.warn("Failed to disconnect observer:", error);
+    }
   }
   STATE.observer = null;
   STATE.translations = null;
@@ -534,90 +539,119 @@ function startInitialPolling(duration = 4000) {
 }
 
 /**
+ * 기존 번역 로드 및 UI 세팅.
+ * @param {string} title - 강의 제목
+ * @returns {Promise<boolean>} 기존 번역을 로드했으면 true, 없으면 false
+ */
+async function loadExistingTranslation(title) {
+  const existingTranslation = await getTranslation(title);
+  if (!existingTranslation) return false;
+  
+  console.log("기존의 번역이 map객체화 되기 전의 형태", existingTranslation);
+  hideLoadingIndicator();
+  STATE.translations = existingTranslation;
+  ensureObserver();
+  startInitialPolling();
+  return true;
+}
+
+/**
+ * 번역된 텍스트를 파싱하여 Map에 추가.
+ * @param {string} translatedText - 번역된 텍스트 (영어\n한국어\n... 형식)
+ * @param {Map<string, string>} targetMap - 결과를 저장할 Map 객체
+ */
+function parseAndMergeTranslation(translatedText, targetMap) {
+  const translatedSentences = translatedText
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+  
+  console.log("process 내부의 translatedSentences : ", translatedSentences);
+  
+  for (let i = 0; i < translatedSentences.length; i += 2) {
+    const english = translatedSentences[i];
+    const korean = translatedSentences[i + 1] ?? "";
+    targetMap.set(normalizeText(english), korean);
+  }
+  
+  console.log(targetMap);
+}
+
+/**
+ * 단일 청크 번역 및 Map 업데이트.
+ * @param {string[]} chunk - 번역할 문장 배열
+ * @param {Map<string, string>} scriptMap - 결과를 저장할 Map 객체
+ * @returns {Promise<boolean>} 번역 성공 여부
+ */
+async function translateChunk(chunk, scriptMap) {
+  const joinedText = chunk.join("\n");
+  console.log("process 내부의 joinedText", joinedText);
+  
+  try {
+    const translatedText = await fetchScript(joinedText, "openai");
+    console.log("translatedText :", translatedText);
+    
+    parseAndMergeTranslation(translatedText, scriptMap);
+    return true;
+  } catch (error) {
+    console.error("Chunk translation failed, skipping chunk:", error);
+    return false;
+  }
+}
+
+/**
+ * 모든 청크를 순차 번역하며 실시간으로 STATE 업데이트 (스트리밍 방식).
+ * @param {string[][]} chunks - 분할된 청크 배열
+ * @param {Map<string, string>} scriptMap - 결과를 저장할 Map 객체
+ */
+async function translateAllChunks(chunks, scriptMap) {
+  let isInitialChunk = true;
+  
+  for (const chunk of chunks) {
+    const success = await translateChunk(chunk, scriptMap);
+    
+    if (!success) continue; // 실패한 청크는 스킵
+    
+    // 각 청크마다 STATE 업데이트 (실시간 반영)
+    STATE.translations = scriptMap;
+    ensureObserver();
+    console.log("Observer ensured/updated for new translations.");
+    
+    // 첫 청크 완료 시에만 UI 업데이트
+    if (isInitialChunk) {
+      isInitialChunk = false;
+      hideLoadingIndicator();
+      startInitialPolling();
+      console.log("process callback 실행 바로 직전");
+    }
+  }
+}
+
+/**
  * 대본 추출 및 번역 프로세스 실행.
  * @returns {Promise<Map<string, string>|undefined>} 번역 Map 객체 또는 undefined
  */
 async function process() {
   console.log("process 최초 실행");
-  let isInitialChunk = true;
-  if (isInitialChunk) {
-    showLoadingIndicator(); // 최초 chunk인 경우, 로딩 인디케이터 표시
-  }
-
+  showLoadingIndicator();
+  
   const title = extractTitle();
-
   if (!title) {
     console.error("Failed to extract title.");
-  }
-
-  const existingTranslation = await getTranslation(title);
-  if (existingTranslation) {
-    // 번역 객체가 존재하면 이를 Map으로 변환하여 반환
-    console.log("기존의 번역이 map객체화 되기 전의 형태", existingTranslation);
-    hideLoadingIndicator();
-    // 단일 옵저버 + 상태 갱신으로 대체
-    STATE.translations = existingTranslation;
-    ensureObserver();
-    // 옵저버 설정 직후 4초간 폴링으로 자막 즉시 반영
-    startInitialPolling();
     return;
   }
-
+  
+  // Phase 1: 기존 번역 확인 (Early Return)
+  const hasExisting = await loadExistingTranslation(title);
+  if (hasExisting) return;
+  
+  // Phase 2: 새로운 번역 (스트리밍 방식)
   const extractedScriptMap = extractScript();
   const chunks = scriptSlice(extractedScriptMap);
-  //const translations = new Map();
-
-  for (const chunk of chunks) {
-    //const joinedText = chunk.map((sentence) => `<p>${sentence}</p>`).join(""); -> DeepL방식
-    const joinedText = chunk.join("\n");
-    console.log("process 내부의 joinedText", joinedText);
-
-    // fetchScript 함수를 await로 호출하고, 전체 번역 결과를 받습니다.
-    const translatedText = await fetchScript(joinedText, "openai");
-    console.log("translatedText :", translatedText);
-
-    // translatedText가 null이 아닌 경우에만 split 호출
-    if (translatedText !== null) {
-      const translatedSentences = translatedText
-        .split("\n")
-        .map((s) => s.trim())
-        .filter((s) => s !== "");
-      console.log("process 내부의 translatedSentences : ", translatedSentences);
-      for (let i = 0; i < translatedSentences.length; i += 2) {
-        // arr[i]: 영어, arr[i + 1]: 한국어 (단, 배열 길이를 넘어가지 않도록 체크)
-        // 기존의 코드 -> extractedScriptMap.set(extractedScriptMap.get(english), korean);
-        // 반복적인 get의 실행이 대본과 번역을 매치하는 안정성을 제공하긴 하지만, 한 차례 검증하는 것이 그리 의미가
-        // 크지 않다고 판단.
-        const english = translatedSentences[i];
-        const korean = translatedSentences[i + 1] ?? "";
-
-        // Map에 저장 (정규화 키로 일관성 유지)
-        extractedScriptMap.set(normalizeText(english), korean);
-      }
-
-      console.log(extractedScriptMap);
-
-      
-    } else {
-      // translatedText가 null인 경우, 에러 처리 또는 건너뛰기
-      console.error("Error: fetchScript returned null");
-    }
-
-    // 옵저버 재생성 대신 상태만 갱신하고 단일 옵저버 보장
-    STATE.translations = extractedScriptMap;
-    ensureObserver();
-    console.log("Observer ensured/updated for new translations.");
-
-    // 번역된 chunk가 translations Map에 추가되었으므로, 최초 1회만 프라임을 수행합니다.
-    console.log("process callback 실행 바로 직전");
-    if (isInitialChunk) {
-      isInitialChunk = false; // 최초 chunk 처리 완료 후 false로 변경
-      hideLoadingIndicator(); // 최초 chunk 처리 완료 후 로딩 인디케이터 숨김
-      startInitialPolling();
-    }
-  }
-
-  // 모든 번역이 완료된 후, 최종 translations Map을 반환.
+  
+  await translateAllChunks(chunks, extractedScriptMap);
+  
+  // Phase 3: 완료
   return extractedScriptMap;
 }
 
@@ -625,10 +659,10 @@ async function process() {
  * Auto 모드: API 기반 자동 번역 실행.
  */
 async function handleAutoMode() {
-  shadowDomInit("auto");
-  openSidebarAndExtractTranscript();
-
   try {
+    shadowDomInit("auto");
+    openSidebarAndExtractTranscript();
+
     const finalTranslations = await process();
     
     if (!finalTranslations?.size) {
@@ -637,15 +671,13 @@ async function handleAutoMode() {
     }
 
     const title = extractTitle();
-    if (!title) {
-      console.error("Failed to extract title.");
-      return;
-    }
-
     console.log("final translation:", finalTranslations);
-    saveTranslation(title, finalTranslations);
+    await saveTranslation(title, finalTranslations);
   } catch (error) {
-    console.error("process 함수 실행 중 에러 발생:", error);
+    console.error("Auto mode failed:", error);
+    hideLoadingIndicator();
+    // 사용자에게 에러 알림 (선택사항)
+    alert(`자막 번역 중 오류가 발생했습니다: ${error.message}`);
   }
 }
 
@@ -666,6 +698,7 @@ async function handleUserMode() {
       startInitialPolling();
     } catch (error) {
       console.error("Failed to process the translation file:", error);
+      alert(`번역 파일 처리 중 오류가 발생했습니다: ${error.message}`);
     }
   };
   
