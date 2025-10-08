@@ -174,15 +174,8 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 
 &nbsp; #참고 동영상
 
-<table>
-  <tr>
-    <td width="75%" valign="top">
-     <video width="100%" controls>
-      <source src="https://github.com/user-attachments/assets/4eab46de-c857-4965-a0fd-b5428ad34f11" type="video/webm">
-    </video>
-    </td>
-  </tr>
-</table>
+[test.webm](https://github.com/user-attachments/assets/503806f1-ae2e-47a3-9860-f52908ec1ac2)
+
 
 #### 📋 텍스트 모드 📋
 
