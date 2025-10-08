@@ -45,20 +45,27 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
   <img src="./subtitle/images/poc_architecture.PNG" alt="poc_architecture" width="full"/>
 </p>
 
-- 📁 `background`
-
-  - 앱 라우팅 루트. App Router 기반 페이지 구성. 섹션별 Server Component 우선, 컨테이너/프리패치 패턴 사용.
-  - 예) `background.js`
+- 📁 `background` (Service Worker)
+  - **역할**: 확장 프로그램의 핵심 로직 및 API 통신 허브.
+  - **주요 기능**:
+    - `chrome.storage`에서 API 키를 안전하게 조회.
+    - OpenAI/DeepL 등 외부 번역 API 호출 및 응답 처리.
+  - **연결점**: `content_script`로부터 번역 요청 메시지를 수신하고, 번역 결과를 다시 `content_script`로 전송.
 
 - 📁 `content_script`
+  - **역할**: 유데미 웹 페이지와 직접 상호작용하는 스크립트.
+  - **주요 기능**:
+    - 강의 페이지의 자막(대본) 텍스트 추출.
+    - 번역된 자막을 화면에 표시하기 위한 DOM 조작.
+    - 자막 변경 감지 및 실시간 업데이트.
+  - **연결점**: 추출한 텍스트를 `background`로 보내 번역을 요청하고, `popup`의 UI 이벤트(번역 시작)에 따라 동작.
 
-  - 앱 전역 재사용 컴포넌트. UI 원자/분자, 공통 Boundary/Feedback 등 포함.
-  - `content.js`
-
-- 📁 `extension_page`
-
-  - React 훅. 도메인 훅과 UI 훅을 구분 유지. React Query 훅은 서비스/레포지토리 레이어 위에서 데이터 접근.
-  - `options.js`, `popup.js`
+- 📁 `extension_page` (Popup & Options)
+  - **역할**: 사용자 인터페이스(UI) 및 설정 관리.
+  - **주요 기능**:
+    - **(popup.js)**: '자동 번역', '내 번역 사용' 등 기능 실행 트리거.
+    - **(options.js)**: 사용자가 API 키를 입력하고 저장하는 설정 페이지 제공.
+  - **연결점**: `popup`에서 사용자가 번역 시작 버튼을 누르면 `content_script`로 메시지를 보내 작업을 개시. `options`에서는 `chrome.storage`에 API 키를 저장하여 `background`가 사용하도록 함.
 
 > 우리 앱은 chrome 브라우저 사용을 권장하며, 크로미움 기반 브라우저에서 동작합니다.
 
@@ -110,7 +117,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 **API 키 등록:**
 
 - 발급받은 API 키는 확장 프로그램의 옵션 페이지에서 입력합니다.
-- API 키는 `chrome.storage.local`에 안전하게 저장되며, 백그라운드 스크립트에서만 접근 가능하여 웹 페이지에 노출되지 않습니다.
+- API 키는 `chrome.storage.local`에 안전하게 저장되며 본 확장 프로그램은 API키를 수집하지 않습니다. 또한, 이 API키는 백그라운드 스크립트에서만 접근 가능하여 웹 페이지에 노출되지 않습니다.
 
 <table>
   <tr>
@@ -171,7 +178,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
   <tr>
     <td width="75%" valign="top">
      <video width="100%" controls>
-  <source src="./subtitle/images/app_test.webm" type="video/webm">
+  <source src="https://raw.githubusercontent.com/marte113/Player-On-Caption/main/subtitle/images/app_test.webm" type="video/webm">
   브라우저가 video 태그를 지원하지 않습니다.
 </video>
     </td>
