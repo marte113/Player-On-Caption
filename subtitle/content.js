@@ -550,7 +550,6 @@ async function loadExistingTranslation(title) {
   console.log("기존의 번역이 map객체화 되기 전의 형태", existingTranslation);
   hideLoadingIndicator();
   STATE.translations = existingTranslation;
-  ensureObserver();
   startInitialPolling();
   return true;
 }
@@ -614,15 +613,14 @@ async function translateAllChunks(chunks, scriptMap) {
     
     // 각 청크마다 STATE 업데이트 (실시간 반영)
     STATE.translations = scriptMap;
-    ensureObserver();
-    console.log("Observer ensured/updated for new translations.");
+    console.log("Chunk translation updated in STATE.");
     
     // 첫 청크 완료 시에만 UI 업데이트
     if (isInitialChunk) {
       isInitialChunk = false;
       hideLoadingIndicator();
       startInitialPolling();
-      console.log("process callback 실행 바로 직전");
+      console.log("First chunk completed, UI activated.");
     }
   }
 }
@@ -641,8 +639,12 @@ async function process() {
     return;
   }
   
-  // Phase 1: 기존 번역 확인 (Early Return)
+  // Phase 1: 기존 번역 확인
   const hasExisting = await loadExistingTranslation(title);
+  
+  // 옵저버는 딱 한 번, 여기서만 생성
+  ensureObserver();
+  
   if (hasExisting) return;
   
   // Phase 2: 새로운 번역 (스트리밍 방식)
