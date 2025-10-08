@@ -178,13 +178,10 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
   <tr>
     <td width="75%" valign="top">
      <video width="100%" controls>
-  <source src="https://raw.githubusercontent.com/marte113/Player-On-Caption/main/subtitle/images/app_test.webm" type="video/webm">
-  브라우저가 video 태그를 지원하지 않습니다.
-</video>
+      <source src="https://github.com/user-attachments/assets/4eab46de-c857-4965-a0fd-b5428ad34f11" type="video/webm">
+    </video>
     </td>
-  
   </tr>
-  
 </table>
 
 #### 📋 텍스트 모드 📋
