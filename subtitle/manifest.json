@@ -2,7 +2,7 @@
 {
   "manifest_version": 3,
   "name": "Subtitle Extension-final", 
-  "version": "6.3",
+  "version": "6.5",
   "description": "Provides customed Korean subtitles for particular videos.",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
