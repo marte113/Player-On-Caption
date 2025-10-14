@@ -47,63 +47,81 @@ Use this understanding to ensure smooth and faithful translation — but **do no
    - If a line is **not the end of a sentence**, avoid sentence-final endings like “~습니다.” or “~입니다.”  
      Use connective endings like “~하고”, “~할 수도”, “~하게”, etc., so that the next line continues naturally.  
    - Only use a sentence-ending form when the speaker’s idea clearly concludes.
+
+4. **Natural Korean Word Order (Conditional Reordering Rule)**
+   - When necessary for fluency, you may **reorder phrases** across adjacent lines  
+     to produce natural Korean syntax — **without merging or reducing line count**.  
+   - Preserve one-to-one line mapping, but adjust internal word order so the translation sounds idiomatic.  
    - **Examples:**
 
-     **Example A: (Two lines forming one sentence)**
+     **Example A:**
      "
-     Well basically uh this pattern provides the uh component consumers with the flexibility to specify what
+     for example, you can use the implements keyword
      "
      "
-     kind of element a child component should render.
+     to implement an interface.
      "
      ✅ Correct:
      "
-     기본적으로 이 패턴은 컴포넌트 사용자가
-    "
-    "
-     자식 컴포넌트가 어떤 요소를 렌더링할지 지정할 수 있는 유연성을 제공합니다.
+     인터페이스를 구현하기 위해 implements 키워드를
+     "
+     "
+     사용할 수 있습니다.
+     "
+     ❌ Incorrect (English word order 그대로):
+     "
+     구현 키워드인 implements를 사용할 수 있고
+     "
+     인터페이스를 구현하기 위해.
      "
 
-     **Example B: (Sentence split after “via the”)**
+     **Example B:**
      "
-     inside our mapping, but maybe you want to receive it instead of zero, you want to receive it via the
-     "  
+     And this then forces you to add the properties and methods
      "
-     constructor.
+     that are defined in the object of that interface
+     "
+     in your class as well.
      "
      ✅ Correct:
      "
-     우리 매핑 안에 있지만, 제로 대신 이를 받길 원하고, 생성자를 통해 받길 원할 수도
+     그러면 그 인터페이스의 객체에 정의되어 있는 프로퍼티와 메서드들이
      "
      "
-     있습니다.
+     클래스 안에도 추가되어야
+     "
+     "
+     합니다.
      "
      ❌ Incorrect:
      "
-     우리 매핑 안에 있지만 제로 대신 이를 받길 원하고, 생성자를 통해 받길 원할 수도 있습니다.
+     그러면 속성과 메서드를 반드시 추가하게 만듭니다.
      "
      "
-     생성자.
+     그 인터페이스의 객체에 정의된 것들 안에 있는 것들
+     "
+     "
+     당신의 클래스 안에도 마찬가지로.
      "
 
-4. **Tone and Style**
+5. **Tone and Style**
    - Maintain a consistent, formal lecture tone throughout (“~합니다”, “~입니다”).
    - Avoid casual endings or tone shifts.
    - The tone should sound like a friendly, confident Korean developer explaining a concept.
 
-5. **Terminology Accuracy**
+6. **Terminology Accuracy**
    - Use common Korean technical terms: “컴포넌트”, “렌더링”, “프로퍼티”, “생성자” 등.
    - Never over-literalize English syntax.
    - Always favor **clarity and natural flow** for Korean listeners.
 
-6. **Cross-Chunk Continuity**
+7. **Cross-Chunk Continuity**
    - Assume this segment continues from previous lecture parts.
    - Maintain same terminology and tone consistency.
 
-7. **Reflection (Internal Check)**
+8. **Reflection (Internal Check)**
    - Before output: confirm that  
      (a) all lines flow smoothly,  
-     (b) sentence endings feel natural,  
+     (b) sentence endings and word order are natural,  
      (c) tone and phrasing remain consistent.
    - Do not output this reflection.
 
@@ -120,38 +138,33 @@ No explanations, no additional formatting.
 ---
 
 ## Example Input:
-In this video we want to talk about polymorphic react components.
+for example, you can use the implements keyword
 
-So what is a polymorphic component and how is it useful.
+to implement an interface.
 
-Well basically uh this pattern provides the uh component consumers with the flexibility to specify what
+And this then forces you to add the properties and methods
 
-kind of element a child component should render.
+that are defined in the object of that interface
 
-inside our mapping, but maybe you want to receive it instead of zero, you want to receive it via the
-
-constructor.
+in your class as well.
 
 ---
 
 ## Example Output:
-In this video we want to talk about polymorphic react components.  
-이번 비디오에서는 다형성 리액트 컴포넌트에 대해 이야기하겠습니다.  
+for example, you can use the implements keyword  
+인터페이스를 구현하기 위해 implements 키워드를  
 
-So what is a polymorphic component and how is it useful.  
-그렇다면 다형성 컴포넌트란 무엇이며, 왜 유용한지 알아보겠습니다.  
+to implement an interface.  
+사용할 수 있습니다.  
 
-Well basically uh this pattern provides the uh component consumers with the flexibility to specify what  
-기본적으로 이 패턴은 컴포넌트 사용자가  
+And this then forces you to add the properties and methods  
+그러면 그 인터페이스의 객체에 정의되어 있는 프로퍼티와 메서드들이  
 
-kind of element a child component should render.  
-자식 컴포넌트가 어떤 요소를 렌더링할지 지정할 수 있는 유연성을 제공합니다.  
+that are defined in the object of that interface  
+클래스 안에도 추가되어야  
 
-inside our mapping, but maybe you want to receive it instead of zero, you want to receive it via the  
-우리 매핑 안에 있지만, 제로 대신 이를 받길 원하고, 생성자를 통해 받길 원할 수도  
-
-constructor.  
-있습니다.  
+in your class as well.  
+합니다.  
   
 `;
 
