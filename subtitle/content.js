@@ -29,6 +29,7 @@ const STATE = {
   refs: { eng: null, kor: null },
   last: { eng: "", kor: "" },
   subtitleElement: null, // 자막 요소 캐싱
+  shadowRoot: null, // Shadow DOM 루트 캐싱
 };
 
 //============================================
@@ -85,9 +86,23 @@ function openDB() {
  */
 async function withStore(mode, Callback) {
   const db = await openDB();
-  const transaction = db.transaction(STORE_NAME, mode);
-  const store = transaction.objectStore(STORE_NAME);
-  return Callback(store);
+  
+  try {
+    const transaction = db.transaction(STORE_NAME, mode);
+    const store = transaction.objectStore(STORE_NAME);
+    const result = await Callback(store);
+    
+    // 트랜잭션 완료 대기 (실제 디스크 커밋 보장)
+    await new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    
+    return result;
+  } finally {
+    // 트랜잭션 완료 후 안전하게 DB 연결 닫기
+    db.close();
+  }
 }
 
 /**
@@ -202,16 +217,16 @@ function scriptSlice(
 ) {
   const transcript = [...scriptMap.keys()];
   const chunks = [];
-  let start = 0;
-  let end = initialChunkSize;
-
-  while (start < transcript.length) {
-    chunks.push(transcript.slice(start, end));
-    start = end;
-    end =
-      start === initialChunkSize
-        ? start + subsequentChunkSize
-        : end + subsequentChunkSize;
+  
+  // 빈 대본 처리
+  if (transcript.length === 0) return chunks;
+  
+  // 첫 번째 청크 (더 작은 크기로 빠른 초기 응답)
+  chunks.push(transcript.slice(0, initialChunkSize));
+  
+  // 나머지 청크들 (일반 크기로 분할)
+  for (let i = initialChunkSize; i < transcript.length; i += subsequentChunkSize) {
+    chunks.push(transcript.slice(i, i + subsequentChunkSize));
   }
 
   console.log("scriptSlice 실행 : ", chunks);
@@ -232,23 +247,22 @@ async function fetchScript(text, api) {
     text,
   });
 
-  if (!response || !response.ok) {
-    const errMsg = response && response.error ? response.error : "Background translation failed";
-    throw new Error(`Translation API error: ${errMsg}`);
+  const { ok, error, data } = response || {};
+  
+  if (!ok || !data) {
+    throw new Error(`Translation API error: ${error ?? "Background translation failed"}`);
   }
-
-  const data = response.data;
 
   // DeepL API의 경우 data.translations[0].text를 반환, OpenAI는 문자열 반환
   return api === "deepl" ? data.translations[0].text : data;
 }
 
 /**
- * 텍스트 라인 배열을 영어-한국어 번역 Map으로 파싱.
+ * 업로드된 파일의 텍스트 라인 배열을 영어-한국어 번역 Map으로 파싱 (User 모드).
  * @param {string[]} lines - 텍스트 라인 배열 (영어, 한국어 교대)
- * @returns {Map<string, string>} 번역 Map 객체
+ * @returns {Map<string, string>} 새로 생성된 번역 Map 객체
  */
-function parseTranslations(lines) {
+function parseTranslationFile(lines) {
   const translations = new Map();
 
   // 줄을 두 개씩 묶어 매핑합니다.
@@ -273,7 +287,7 @@ async function readTranslationFile(file) {
     .map(line => line.trim())
     .filter(Boolean);
   
-  return parseTranslations(lines);
+  return parseTranslationFile(lines);
 }
 
 /**
@@ -354,6 +368,7 @@ function shadowDomInit(mode) {
   // 캐시된 레퍼런스 저장
   STATE.refs.eng = englishSubtitle;
   STATE.refs.kor = koreanSubtitle;
+  STATE.shadowRoot = shadowRoot; // Shadow DOM 루트 캐싱
 
   if (mode === "auto") {
     const loadingIndicator = document.createElement("div");
@@ -370,11 +385,11 @@ function shadowDomInit(mode) {
  */
 function showLoadingIndicator() {
   console.log("showLoadingIndicator 실행");
-  const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
-  const shadowRoot = container.shadowRoot;
-  const indicator = shadowRoot.getElementById("loading-indicator");
+  if (!STATE.shadowRoot) return;
+  
+  const indicator = STATE.shadowRoot.getElementById("loading-indicator");
   if (indicator) {
-    indicator.style.display = "block"; // flex 또는 block 등으로 표시
+    indicator.style.display = "flex";
   }
 }
 
@@ -383,9 +398,9 @@ function showLoadingIndicator() {
  */
 function hideLoadingIndicator() {
   console.log("hideLoadingIndicator 실행");
-  const container = document.querySelector(SELECTORS.SUBTITLE_CONTAINER);
-  const shadowRoot = container.shadowRoot;
-  const indicator = shadowRoot.getElementById("loading-indicator");
+  if (!STATE.shadowRoot) return;
+  
+  const indicator = STATE.shadowRoot.getElementById("loading-indicator");
   if (indicator) {
     indicator.style.display = "none";
   }
@@ -510,6 +525,7 @@ function resetState() {
   STATE.last = { eng: "", kor: "" };
   STATE.refs = { eng: null, kor: null };
   STATE.subtitleElement = null;
+  STATE.shadowRoot = null;
 }
 
 /**
@@ -555,11 +571,11 @@ async function loadExistingTranslation(title) {
 }
 
 /**
- * 번역된 텍스트를 파싱하여 Map에 추가.
+ * API 번역 청크를 파싱하여 기존 Map에 병합 (Auto 모드).
  * @param {string} translatedText - 번역된 텍스트 (영어\n한국어\n... 형식)
- * @param {Map<string, string>} targetMap - 결과를 저장할 Map 객체
+ * @param {Map<string, string>} targetMap - 기존 대본 key가 있는 Map 객체 (value 채움)
  */
-function parseAndMergeTranslation(translatedText, targetMap) {
+function mergeTranslationChunk(translatedText, targetMap) {
   const translatedSentences = translatedText
     .split("\n")
     .map((s) => s.trim())
@@ -590,7 +606,7 @@ async function translateChunk(chunk, scriptMap) {
     const translatedText = await fetchScript(joinedText, "openai");
     console.log("translatedText :", translatedText);
     
-    parseAndMergeTranslation(translatedText, scriptMap);
+    mergeTranslationChunk(translatedText, scriptMap);
     return true;
   } catch (error) {
     console.error("Chunk translation failed, skipping chunk:", error);

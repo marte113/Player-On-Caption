@@ -42,7 +42,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 프로덕션 규칙: MV3 기반 메시징 파이프라인을 통하여, 파일 간 통신을 이루며 각각의 파일은 다음과 같은 컨텍스트 내부에서 동작합니다.
 
 <p align="center">
-  <img src="./subtitle/images/poc_architecture.PNG" alt="poc_architecture" width="full"/>
+  <img src="./subtitle/images/architecture.PNG" alt="poc_architecture" width="full"/>
 </p>
 
 - 📁 `background` (Service Worker)
