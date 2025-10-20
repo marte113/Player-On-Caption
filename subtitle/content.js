@@ -692,7 +692,7 @@ async function handleAutoMode() {
     console.log("final translation:", finalTranslations);
     await saveTranslation(title, finalTranslations);
   } catch (error) {
-    console.error("Auto mode failed:", error);
+    //console.error("Auto mode failed:", error);
     hideLoadingIndicator();
     // 사용자에게 에러 알림 (선택사항)
     alert(`자막 번역 중 오류가 발생했습니다: ${error.message}`);
