@@ -179,9 +179,7 @@ async function translateWithOpenAI(text) {
         {
           role: "user",
           content: `
----Start Script---
 ${text}
----End Script---
 `,
         },
       ],
