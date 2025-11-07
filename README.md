@@ -122,10 +122,10 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 <table>
   <tr>
     <td width="40%" valign="top">
-      <img src='./subtitle/images/guide_3.JPG' alt="게임 메이트 dashboard_token페이지" width="100%">
+      <img src='./subtitle/images/guide_3.JPG' alt="" width="100%">
     </td>
     <td width="60%" valign="top">
-      <img src='./subtitle/images/guide_4.JPG' alt="게임 메이트 dashboard_token페이지지-m" width="100%">
+      <img src='./subtitle/images/guide_4.JPG' alt="" width="100%">
     </td>
   </tr>
   
@@ -133,12 +133,12 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 
 #### 🙋 확장 프로그램 등록 - 4 🙋
 
-&nbsp; 가장 첫 번째 입력 란에 "https://platform.openai.com/settings/organization/api-keys" 에서 발급 받은 API키를 입력 합니다.
+&nbsp; 가장 첫 번째 입력 란에 [OpenAI API Keys 페이지](https://platform.openai.com/settings/organization/api-keys) 에서 발급 받은 API키를 입력 합니다.
 
 <table>
   <tr>
     <td width="75%" valign="top">
-      <img src='./subtitle/images/guide_5.JPG' alt="게임 메이트 dashboard_token페이지" width="100%">
+      <img src='./subtitle/images/guide_5.JPG' alt="" width="100%">
     </td>
    
   </tr>
@@ -155,7 +155,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 <table>
   <tr>
     <td width="75%" valign="top">
-      <img src='./subtitle/images/guide_6.JPG' alt="게임 메이트 chat페이지" width="100%">
+      <img src='./subtitle/images/guide_6.JPG' alt="" width="100%">
     </td>
   </tr>
   
@@ -163,7 +163,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 <table>
   <tr>
     <td width="75%" valign="top">
-      <img src='./subtitle/images/guide_7.JPG' alt="게임 메이트 chat페이지" width="100%">
+      <img src='./subtitle/images/guide_7.JPG' alt="" width="100%">
     </td>
    
   </tr>
@@ -183,12 +183,12 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 *개인적인 견해로 가장 정확하고 반복적인 번역은 gemini 2.5 pro가 좋았습니다.<br>
 *gemini 2.5 pro에서 "새 GEM"을 등록하고, 해당 GEM에 prompt.txt 파일의 프롬프트를 입력하세요.
 
-텍스트 준비 GPT 모델 링크 - [GPT 모델 링크](https://chatgpt.com/g/g-68e63546622c81918030765184a2bc12-yudemi-beonyeog-gpt)
+텍스트 준비 GPT 모델 링크 - [GPT 모델 링크](https://chatgpt.com/g/g-690dacdda2688191944b59493b80999d-poc-jeonyong-gpt)
 
 <table>
   <tr>
     <td width="75%" valign="top">
-      <img src='./subtitle/images/text_exam.JPG' alt="게임 메이트 task페이지" width="100%">
+      <img src='./subtitle/images/text_exam.JPG' alt="" width="100%">
     </td>
     
   </tr>
@@ -198,7 +198,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 <table>
   <tr>
     <td width="75%" valign="top">
-      <img src='./subtitle/images/text_quide0-1.png' alt="게임 메이트 task페이지" width="100%">
+      <img src='./subtitle/images/text_quide0-1.png' alt="" width="100%">
     </td>
     
   </tr>
@@ -210,7 +210,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 <table>
   <tr>
     <td width="75%" valign="top">
-      <img src='./subtitle/images/text_quide.png' alt="게임 메이트 review페이지" width="100%">
+      <img src='./subtitle/images/text_quide.png' alt="" width="100%">
     </td>
    
   </tr>
@@ -221,7 +221,7 @@ OpenAI 및 DeepL API를 활용하여 높은 품질의 자막을 제공합니다.
 <table>
   <tr>
     <td width="75%" valign="top">
-      <img src='./subtitle/images/text_guide2.png' alt="게임 메이트 review페이지" width="100%">
+      <img src='./subtitle/images/text_guide2.png' alt="" width="100%">
     </td>
    
   </tr>
