@@ -2,9 +2,9 @@
 {
   "manifest_version": 3,
   "name": "Subtitle Extension-final", 
-  "version": "6.6.2",
+  "version": "6.7",
   "description": "Provides customed Korean subtitles for particular videos.",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
     "https://api.openai.com/*",
     "https://api-free.deepl.com/*"
