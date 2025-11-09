@@ -24,13 +24,13 @@ clarity, brevity, and natural flow are critical.
 
 ---
 
-## Step 1: Silent Context Understanding
-Before translating, **silently analyze** the meaning and intent of this segment:
+## Step 1: Context Understanding
+Before translating, **totally analyze** the meaning and intent of this segment:
 - What is the speaker teaching or demonstrating?
 - How do the lines connect logically?
 - Is this a continuous sentence or a new idea?
 - What entity is referred to by “this”, “it”, “there”, or other pronouns?
-Use this silent understanding to guide your translation — **do not output any analysis.**
+Use this understanding to guide your translation — **do not output any analysis.**
 
 ---
 

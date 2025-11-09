@@ -665,7 +665,7 @@ async function process() {
   
   // Phase 2: 새로운 번역 (스트리밍 방식)
   const extractedScriptMap = extractScript();
-  const chunks = scriptSlice(extractedScriptMap);
+  const chunks = scriptSlice(extractedScriptMap, extractedScriptMap.size);
   
   await translateAllChunks(chunks, extractedScriptMap);
   
