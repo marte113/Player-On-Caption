@@ -328,7 +328,7 @@ async function streamTranslateWholeWithOpenAI(fullText, port, setController) {
   let sseBuffer = "";
   let deltaCount = 0;
 
-  console.log("[BG] SSE read loop start");
+  // console.log("[BG] SSE read loop start");
 
   while (true) {
     const { value, done } = await reader.read();
@@ -345,7 +345,7 @@ async function streamTranslateWholeWithOpenAI(fullText, port, setController) {
         if (!line.startsWith("data:")) continue;
         const data = line.slice(5).trim();
         if (!data || data === "[DONE]") {
-          console.log("[BG] SSE [DONE] received");
+          // console.log("[BG] SSE [DONE] received");
           port.postMessage({ type: "done" });
           continue;
         }
@@ -355,15 +355,15 @@ async function streamTranslateWholeWithOpenAI(fullText, port, setController) {
           // Responses API 스트리밍 형식: response.output_text.delta
           if (evt?.type === "response.output_text.delta" && typeof evt.delta === "string") {
             deltaCount++;
-            if (deltaCount <= 5 || deltaCount % 20 === 0) {
-              console.log("[BG] delta#", deltaCount, "snippet:", evt.delta.slice(0, 80));
-            }
+            // if (deltaCount <= 5 || deltaCount % 20 === 0) {
+            //   console.log("[BG] delta#", deltaCount, "snippet:", evt.delta.slice(0, 80));
+            // }
             port.postMessage({ type: "delta", text: evt.delta });
           }
 
           // 완료 신호 감지
           if (evt?.type === "response.completed") {
-            console.log("[BG] SSE completed (event)");
+            // console.log("[BG] SSE completed (event)");
             port.postMessage({ type: "done" });
           }
 
@@ -379,7 +379,7 @@ async function streamTranslateWholeWithOpenAI(fullText, port, setController) {
     }
   }
 
-  console.log("[BG] SSE reader EOF; sending done");
+  // console.log("[BG] SSE reader EOF; sending done");
   port.postMessage({ type: "done" });
 }
 
